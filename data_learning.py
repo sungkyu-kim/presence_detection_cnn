@@ -34,8 +34,19 @@ def get_input_arguments():
 def get_classification_report(predict, truth, num_classes, label_mapping):
     print('\nFinal Classification Report:')
     results = np.zeros((len(label_mapping), num_classes), np.float32)
+
+    t_0, t_1, p_0, p_1 = 0,0,0,0
     for k in range(predict.shape[0]):
+        if truth[k] == 0:
+            t_0 +=1
+        else:
+            t_1 +=1
+        if predict[k] == 0:
+            p_0 +=1
+        else:
+            p_1 +=1
         results[truth[k], predict[k]] += 1
+    print(f'truth[{t_0},{t_1}] / predict[{p_0},{p_1}]\n')
     for name, k in label_mapping.items():
         print('label {}: has size {:.0f} static count {:.0f} motion count {:.0f}'.format(name, np.sum(results[k, :]),
                                                                                         results[k, 0], results[k, 1]))
@@ -189,7 +200,9 @@ class NeuralNetworkModel:
         self.y_test = np.reshape(temp_label, (-1, 1))
 
     def get_test_result(self, label_mapping={'empty': 0, 'motion': 1}):
+        print(f'get_test_result self.x_test.shape {self.x_test.shape}')
         p = self.predict(self.x_test, output_label=True, batch_size=1)
+        print(f'get_test_result p.shape {p.shape}')
         get_classification_report(p, self.y_test, self.num_classes, label_mapping)
         return p
 
@@ -204,6 +217,67 @@ class NeuralNetworkModel:
         p.tofile(filename)
         print("test result was saved to " + filename + "\n")
 
+    def get_data_from_file_my(self, file_prefix, data_type, train_list, test_list):
+        for d in train_list:
+            print(f'get_data_from_file_my : {d}')
+            if conf.do_fft:
+                train_filename = file_prefix + d + '_x_fft.dat'
+                train_label_filename = file_prefix + d + '_y_fft.dat'
+            else:
+                train_filename = file_prefix + d + '_x.dat'
+                train_label_filename = file_prefix + d + '_y.dat'
+            print(f'get_data_from_file_my : train_filename : {train_filename}')
+            print(f'get_data_from_file_my : train_label_filename : {train_label_filename}')
+
+            temp_image = np.fromfile(train_filename, dtype=data_type)
+            print(f'get_data_from_file temp_image.shape : {temp_image.shape}')
+            self.x_train = np.reshape(temp_image, (-1,) + self.input_data_shape)
+            print(f'get_data_from_file self.x_train.shape : {self.x_train.shape}')
+            
+            temp_label = np.fromfile(train_label_filename, dtype=np.int8)
+            print(f'get_data_from_file temp_label.shape : {temp_label.shape}')
+            self.y_train = np.reshape(temp_label, (-1, 1))
+            print(f'get_data_from_file self.y_train.shape : {self.y_train.shape}')
+
+
+        for d in test_list:
+            if conf.do_fft:
+                test_filename = file_prefix + d + '_x_fft.dat'
+                test_label_filename = file_prefix + d + '_y_fft.dat'
+            else:
+
+                test_filename = file_prefix + d + '_x.dat'
+                test_label_filename = file_prefix + d + '_y.dat'
+            print(f'get_data_from_file_my : test_filename : {test_filename}')
+            print(f'get_data_from_file_my : test_label_filename : {test_label_filename}')
+
+            temp_image = np.fromfile(test_filename, dtype=data_type)
+            print(f'get_data_from_file temp_image.shape : {temp_image.shape}')
+            self.x_test = np.reshape(temp_image, (-1,) + self.input_data_shape)
+            print(f'get_data_from_file self.x_test.shape : {self.x_test.shape}')
+            temp_label = np.fromfile(test_label_filename, dtype=np.int8)
+            print(f'get_data_from_file temp_label.shape : {temp_label.shape}')
+            self.y_test = np.reshape(temp_label, (-1, 1))
+            print(f'get_data_from_file self.y_test.shape : {self.y_test.shape}')
+
+def data_learning(train_list, test_list):
+    data_folder='data/data_preprocessing/'
+
+    print(f'conf.data_shape_to_nn : {conf.data_shape_to_nn}')
+    print(f'conf.abs_shape_to_nn : {conf.abs_shape_to_nn}')
+    print(f'conf.phase_shape_to_nn : {conf.phase_shape_to_nn}')
+    print(f'conf.total_classes : {conf.total_classes}')
+    nn_model = NeuralNetworkModel(conf.data_shape_to_nn, conf.abs_shape_to_nn,
+                                  conf.phase_shape_to_nn, conf.total_classes)
+    nn_model.get_data_from_file_my(data_folder, np.float32, train_list, test_list)
+    nn_model.cnn_model_abs_phase()
+    nn_model.fit_data(conf.epochs)
+    if conf.do_fft:
+        nn_model.save_model(conf.model_name_fft)
+    else:
+        nn_model.save_model(conf.model_name)
+
+    nn_model.end()
 
 def main():
     args = get_input_arguments()

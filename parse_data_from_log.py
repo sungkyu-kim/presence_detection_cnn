@@ -159,6 +159,46 @@ class DataLogParser:
     def get_data_no_label(self):
         return self.out_data_no_label
 
+    def generate_image_many_save(self, train_date):
+        date = train_date
+        for d in date:
+            print(f"d : {d}")
+            day_index = int(d[3:])
+            print(f"day_index : {day_index}")
+            logfilename = self.log_file_prefix + d + '/'
+            print(f"logfilename : {logfilename}")
+
+            for k, o in self.label.items():
+                self.out_data_train[o] = np.array([])
+
+            for label_name, o in self.label.items():
+                if label_name in self.conf[d]:
+                    total_tests = self.conf[d][label_name]
+                else:
+                    continue
+                for i in range(1, total_tests + 1):
+                    # first 3 days' logs not only have csi but also payload for each received frame
+                    has_payload = day_index <= 3
+                    frame_data = self.parser.parse(logfilename + label_name + str(i) + ".data", has_payload)
+                    dd = self.image_constructor.process_data(frame_data)
+                    self.out_data_train[o] = append_array(self.out_data_train[o], dd)
+                print(f'generate_image_many_save self.out_data_train[o].shape {self.out_data_train[o].shape}')
+            for k, o in self.label.items():
+                    self.out_data_train[o].tofile(self.file_prefix + str(d) + "_" + str(o) + '.dat')
+
+def parse_data_from_log(d_list):    
+    data_folder = conf.data_folder
+    label = conf.train_label
+    data_folder += "data/"
+    data_generator = DataLogParser(conf.n_timestamps, conf.D, conf.step_size,
+                                   conf.ntx_max, conf.nrx_max,
+                                   conf.nsubcarrier_max, data_folder,
+                                   conf.log_folder,
+                                   conf.skip_frames,
+                                   conf.time_offset_ratio,
+                                   conf.day_conf,
+                                   label)    
+    data_generator.generate_image_many_save(d_list)    
 
 def main():
     args = get_input_arguments()
@@ -190,7 +230,7 @@ def main():
         print('test date from {}'.format(conf.test_date))
         print('test label is {}\n'.format(label))
         data_generator.generate_image([], conf.test_date)
-    data_generator.save_data(training_mode)
+    data_generator.save_data(training_mode)  
 
 
 if __name__ == "__main__":

@@ -18,6 +18,7 @@ class DataPreprocess:
     def __init__(self, n_timestamps, D, step_size, ntx_max,
                  ntx, nrx_max, nrx, nsubcarrier_max, nsubcarrier, output_shape, file_prefix, label):
         self.file_prefix = file_prefix
+        self.file2_prefix = file_prefix
         self.data_shape = (n_timestamps, nrx_max, ntx_max, nsubcarrier_max)
         self.step_size = step_size
         self.n_timestamps = n_timestamps
@@ -141,7 +142,93 @@ class DataPreprocess:
             print("class {} has training {}, test {}".format(key,
                                                              val['train_num'],
                                                              val['test_num']))
+    def load_image_my(self, d, train_data_class={}, test_data_class={}):
+        x_train, x_test, y_train, y_test = np.array([]), np.array([]), np.array([]), np.array([])
+        self.classes_num = {}
+        for label_name, o in self.label.items():
+            if o not in self.classes_num.keys():
+                self.classes_num[o] = {'train_num': 0, 'test_num': 0}
 
+            filename = self.file_prefix + str(d) + "_" + str(o) + '.dat'
+            print('load filename ' + filename)
+            temp_image = np.fromfile(filename, dtype=np.complex64)
+            print(f'temp_image.shape load : {temp_image.shape}')
+            temp_image = np.reshape(temp_image, (-1,) + self.data_shape)
+            print(f'temp_image.shape reshape : {temp_image.shape}')
+            
+            print(f'temp_image.shape reshape_func self.subcarrier_spacing : {self.subcarrier_spacing}')
+            temp_image = reshape_func(temp_image, self.subcarrier_spacing)
+            print(f'temp_image.shape reshape_func : {temp_image.shape}')
+            temp_label = np.full((temp_image.shape[0], 1), o, np.int8)
+            self.classes_num[o]['train_num'] += temp_label.shape[0]
+            x_train = append_array(x_train, temp_image)
+            y_train = append_array(y_train, temp_label)
+        
+        self.x_train, self.y_train = x_train, y_train
+        print('self.classes_num')
+        print(self.classes_num)
+        if self.x_train.shape[0] != self.y_train.shape[0]:
+            raise ValueError('x_train and y_train size mismatch')
+
+    def signal_processing_my(self, do_fft, fft_shape):
+        
+        print(f'\n\npre signal_processing_my self.x_train.shape : {self.x_train.shape}')
+        if self.x_train.shape[0] > 0:
+            self.x_train = sp_func(self.x_train, do_fft, fft_shape)
+        print(f'after signal_processing_my self.x_train.shape : {self.x_train.shape}')
+
+        if self.no_label_test is not None:
+            for key in self.no_label_test:
+                for idx in self.no_label_test[key]:
+                    self.no_label_test[key][idx] = sp_func(self.no_label_test[key][idx], do_fft, fft_shape)
+    
+    def prepare_shape_my(self):
+        print(f'\npre prepare_shape_my self.output_shape {self.output_shape}')
+        print(f'\npre prepare_shape_my self.x_train.shape {self.x_train.shape}')
+        if self.x_train.shape[0]:
+            self.x_train = shape_conversion(self.x_train, self.output_shape[0])
+            print('final training data shape {}'.format(self.x_train.shape))
+        print(f'after prepare_shape_my self.x_train.shape {self.x_train.shape}')
+        if self.no_label_test is not None:
+            for key in self.no_label_test:
+                for idx in self.no_label_test[key]:
+                    self.no_label_test[key][idx] = shape_conversion(self.no_label_test[key][idx], self.output_shape[0])
+
+    def save2file_my(self, d):
+        print('\nmy begin to save data to file...')
+        print(f'save2file_my self.x_train.shape {self.x_train.shape}')
+        if conf.do_fft:
+            filenameX = self.file2_prefix + str(d) + "_x_fft" + '.dat'
+            filenameY = self.file2_prefix + str(d) + "_y_fft" + '.dat'
+        else:
+            filenameX = self.file2_prefix + str(d) + "_x" + '.dat'
+            filenameY = self.file2_prefix + str(d) + "_y" + '.dat'
+        
+        if self.x_train.shape[0] > 0:
+            print(f'filenameX : {filenameX}')
+            print(f'filenameY : {filenameY}')
+            self.x_train.tofile(filenameX)
+            self.y_train.tofile(filenameY)
+            
+        print("my data files were saved successfully!\n")
+
+def data_preprocessing(d_list):
+    data_folder = conf.data_folder
+    data_folder += "data/"
+    label = conf.train_label
+
+    data_process = DataPreprocess(conf.n_timestamps, conf.D, conf.step_size,
+                                  conf.ntx_max, conf.ntx, conf.nrx_max,
+                                  conf.nrx, conf.nsubcarrier_max, conf.nsubcarrier,
+                                  conf.data_shape_to_nn,
+                                  data_folder, label)
+    data_process.file2_prefix = conf.data_folder + "data_preprocessing/"
+
+    for d in d_list:
+        data_process.load_image_my(d, True)
+        data_process.signal_processing_my(conf.do_fft, conf.fft_shape)
+        data_process.prepare_shape_my()
+        data_process.save2file_my(d)
 
 def main():
     args = get_input_arguments()

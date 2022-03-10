@@ -3,7 +3,7 @@ import json
 from test_date_conf import parse_test_days
 
 # folder directory where all the data is stored (absolute path)
-log_folder = '/root/share/upload_wifi_data/'
+log_folder = 'log/'
 # folder directory used to store processed data (path relative to repo directory)
 data_folder = 'data/'
 # folder directory used to store model (path relative to repo directory
@@ -46,8 +46,10 @@ train_label = {'empty': 0, 'motion':1} # key: types of runs; value: class (0 or 
 total_classes = 2
 draw_date = ['day5', ]
 draw_label = 'mixed'
-training_date = ['day9','day10', 'day11', 'day12', 'day13', 'day14']
-training_validate_date = ['day15', 'day16']
+#training_date = ['day1','day2','day3','day4','day5','day6','day7','day8','day9','day10','day11','day12','day13','day14','day15','day16']
+#training_date = ['day9','day10','day11']
+training_date = ['day9']
+training_validate_date = ['day21']
 # make sure validation data and training data come from disjoint days
 for d in training_validate_date:
     if d in training_date:
@@ -72,3 +74,4 @@ else:
 epochs = 10
 # where to save/store the nn model
 model_name = model_folder+'wifi_presence_model.h5'
+model_name_fft = model_folder+'wifi_presence_model_fft.h5'
