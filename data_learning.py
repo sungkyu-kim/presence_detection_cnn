@@ -55,6 +55,8 @@ def get_classification_report(predict, truth, num_classes, label_mapping):
     for name, k in label_mapping.items():
         outstr = 'label {}: class {} acc {:.4f}'.format(name, int(k>=1), results[k, int(k>=1)]) 
         print(outstr)
+    result = (results[0, 0] + results[1,1])/2
+    return result
 
 
 class NeuralNetworkModel:
@@ -106,6 +108,36 @@ class NeuralNetworkModel:
         x = BatchNormalization()(x)
         return x
 
+    def cnn_model_phase2(self, x):
+        x = Conv2D(filters=12, kernel_size=(3, 3), strides=(1, 1), padding='valid',
+                   activation='relu', kernel_initializer=initializers.glorot_uniform())(x)
+        x = BatchNormalization()(x)
+        x = AveragePooling2D(pool_size=(3, 1), strides=(3, 1))(x)
+        print("before flatten, shape of the phase data is: " + str(x.shape))
+        x = Flatten()(x)
+        x = Dropout(0.5)(x)
+        x = Dense(32,
+                  kernel_regularizer=regularizers.l2(0.02),
+                  kernel_initializer=initializers.glorot_uniform(),
+                  activation='relu')(x)
+        x = BatchNormalization()(x)
+        return x
+
+    def cnn_model_abs2(self, x):
+        x = Conv2D(filters=12, kernel_size=(3, 3), strides=(1, 1), padding='valid',
+                   activation='relu', kernel_initializer=initializers.glorot_uniform())(x)
+        x = BatchNormalization()(x)
+        x = AveragePooling2D(pool_size=(3, 1), strides=(3, 1))(x)
+        print("before flatten, shape of the abs data is: " + str(x.shape))
+        x = Flatten()(x)
+        x = Dropout(0.5)(x)
+        x = Dense(32,
+                  kernel_regularizer=regularizers.l2(0.02),
+                  kernel_initializer=initializers.glorot_uniform(),
+                  activation='relu')(x)
+        x = BatchNormalization()(x)
+        return x
+
     def cnn_model_abs_phase(self, ):
         x_input = Input(shape=self.input_data_shape, name="main_input", dtype="float32")
         # split CSI images into magnitude images and phase images
@@ -126,6 +158,25 @@ class NeuralNetworkModel:
                   activation='softmax', name="main_output")(x)
         self.model = Model(inputs=[x_input, ], outputs=x)
 
+    def cnn_model_abs_phase2(self, ):
+        x_input = Input(shape=self.input_data_shape, name="main_input", dtype="float32")
+        # split CSI images into magnitude images and phase images
+        x_abs = Lambda(lambda y: y[..., 0], name='abs_input')(x_input)
+        # TODO: need to remove this hardcoded 6 here (hardcode it since I haven't figured a way to 
+        # save a constant into a NN model successfully). 
+        # This value should be set to self.phase_data_shape[-1](in 3X3 MIMO case, it equals to 6) 
+        x_phase = Lambda(lambda y: y[..., :6, 1], name='phase_input')(x_input)
+        print('abs input shape {}'.format(x_abs.shape))
+        print('phase input shape {}'.format(x_phase.shape))
+        x_abs_cnn = self.cnn_model_abs2(x_abs)
+        x_phase_cnn = self.cnn_model_phase2(x_phase)
+        x = concatenate([x_abs_cnn, x_phase_cnn])
+        x = Dropout(0.5)(x)
+        x = Dense(self.num_classes,
+                  kernel_regularizer=regularizers.l2(0.02),
+                  kernel_initializer=initializers.glorot_uniform(),
+                  activation='softmax', name="main_output")(x)
+        self.model = Model(inputs=[x_input, ], outputs=x)
 
     def fit_data(self, epochs):
         train_num, test_num = {}, {}
@@ -203,8 +254,8 @@ class NeuralNetworkModel:
         print(f'get_test_result self.x_test.shape {self.x_test.shape}')
         p = self.predict(self.x_test, output_label=True, batch_size=1)
         print(f'get_test_result p.shape {p.shape}')
-        get_classification_report(p, self.y_test, self.num_classes, label_mapping)
-        return p
+        ret = get_classification_report(p, self.y_test, self.num_classes, label_mapping)
+        return ret
 
     def get_no_label_result(self, dd, output_label=True, batch_size=1):
         p = self.predict(dd, output_label, batch_size=batch_size)
@@ -260,23 +311,22 @@ class NeuralNetworkModel:
             self.y_test = np.reshape(temp_label, (-1, 1))
             print(f'get_data_from_file self.y_test.shape : {self.y_test.shape}')
 
-def data_learning(train_list, test_list):
-    data_folder='data/data_preprocessing/'
+def data_learning(train_list, test_list, data_preprocessing_path_, model_path_name, test_conf, model_name):
 
-    print(f'conf.data_shape_to_nn : {conf.data_shape_to_nn}')
-    print(f'conf.abs_shape_to_nn : {conf.abs_shape_to_nn}')
-    print(f'conf.phase_shape_to_nn : {conf.phase_shape_to_nn}')
+    print(f'conf.data_shape_to_nn : {test_conf["data_shape_to_nn"]}')
+    print(f'conf.abs_shape_to_nn : {test_conf["abs_shape_to_nn"]}')
+    print(f'conf.phase_shape_to_nn : {test_conf["phase_shape_to_nn"]}')
     print(f'conf.total_classes : {conf.total_classes}')
-    nn_model = NeuralNetworkModel(conf.data_shape_to_nn, conf.abs_shape_to_nn,
-                                  conf.phase_shape_to_nn, conf.total_classes)
-    nn_model.get_data_from_file_my(data_folder, np.float32, train_list, test_list)
-    nn_model.cnn_model_abs_phase()
-    nn_model.fit_data(conf.epochs)
-    if conf.do_fft:
-        nn_model.save_model(conf.model_name_fft)
+    nn_model = NeuralNetworkModel(test_conf['data_shape_to_nn'], test_conf['abs_shape_to_nn'],
+                                  test_conf['phase_shape_to_nn'], conf.total_classes)
+    nn_model.get_data_from_file_my(data_preprocessing_path_, np.float32, train_list, test_list)
+    if test_conf['model'] == "model1":
+        nn_model.cnn_model_abs_phase()
     else:
-        nn_model.save_model(conf.model_name)
-
+        nn_model.cnn_model_abs_phase2()
+    nn_model.fit_data(conf.epochs)
+    nn_model.save_model(model_name)
+    
     nn_model.end()
 
 def main():

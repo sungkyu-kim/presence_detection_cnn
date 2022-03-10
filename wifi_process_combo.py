@@ -87,22 +87,21 @@ def main():
     nn_model.end()
     print("Done!")
 
-def wifi_process_combo(test_list):
-    data_folder = 'data/data_preprocessing/'
-    filename = 'day11'
+def wifi_process_combo(test_list, data_preprocessing_path_, model_path_name, test_conf, model_name):
+
     for d in test_list:
         if conf.do_fft:
-            test_filename = data_folder + d + '_x_fft.dat'
-            test_label_filename = data_folder + d + '_y_fft.dat'
+            test_filename = data_preprocessing_path_ + d + '_x_fft.dat'
+            test_label_filename = data_preprocessing_path_ + d + '_y_fft.dat'
         else:
-            test_filename = data_folder + d + '_x.dat'
-            test_label_filename = data_folder + d + '_y.dat'
+            test_filename = data_preprocessing_path_ + d + '_x.dat'
+            test_label_filename = data_preprocessing_path_ + d + '_y.dat'
         print(f'wifi_process_combo : test_filename : {test_filename}')
         print(f'wifi_process_combo : test_label_filename : {test_label_filename}')
 
         temp_image = np.fromfile(test_filename, dtype=np.float32)
         print(f'get_data_from_file temp_image.shape : {temp_image.shape}')
-        x_test = np.reshape(temp_image, (-1,) + conf.data_shape_to_nn)
+        x_test = np.reshape(temp_image, (-1,) + test_conf["data_shape_to_nn"])
         print(f'get_data_from_file self.x_test.shape : {x_test.shape}')
 
         temp_label = np.fromfile(test_label_filename, dtype=np.int8)
@@ -110,19 +109,18 @@ def wifi_process_combo(test_list):
         y_test = np.reshape(temp_label, (-1, 1))
         print(f'get_data_from_file self.y_test.shape : {y_test.shape}')
 
-        nn_model = NeuralNetworkModel(conf.data_shape_to_nn, conf.abs_shape_to_nn,
-                                    conf.phase_shape_to_nn, conf.total_classes)
+        nn_model = NeuralNetworkModel(test_conf["data_shape_to_nn"], test_conf["abs_shape_to_nn"],
+                                    test_conf["phase_shape_to_nn"], conf.total_classes)
         nn_model.add_data(x_test, y_test, x_test, y_test)
         
         print("Get test result using existing model (in test mode)\n")
-        if conf.do_fft:
-            nn_model.load_model(conf.model_name_fft)
-        else:
-            nn_model.load_model(conf.model_name)
+        
+        nn_model.load_model(model_name)        
         result = nn_model.get_test_result()
 
         nn_model.end()
         print("Done!")
+        return result
 
 if __name__ == "__main__":
     main()

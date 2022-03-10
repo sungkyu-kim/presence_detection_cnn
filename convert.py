@@ -1,11 +1,19 @@
 import tensorflow as tf
+import os
 def convert_lite(model_name):
-    #model_name = 'model/wifi_presence_model_fft'
-    model = tf.keras.models.load_model(model_name+'.h5')
+    convert = False
 
-    converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    tflite_model = converter.convert()
-    open(model_name+'.tflite',"wb").write(tflite_model)
+    if convert:
+        model = tf.keras.models.load_model(model_name+'.h5')
+
+        converter = tf.lite.TFLiteConverter.from_keras_model(model)
+        tflite_model = converter.convert()
+        open(model_name+'.tflite',"wb").write(tflite_model)
+        file_size = os.path.getsize(model_name+'.tflite')
+        return file_size
+    else:
+        file_size = os.path.getsize(model_name+'.h5')
+        return file_size
 
     '''
     def representative_dataset():

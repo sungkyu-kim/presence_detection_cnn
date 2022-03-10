@@ -212,21 +212,18 @@ class DataPreprocess:
             
         print("my data files were saved successfully!\n")
 
-def data_preprocessing(d_list):
-    data_folder = conf.data_folder
-    data_folder += "data/"
-    label = conf.train_label
+def data_preprocessing(d_list, data_path, data_preprocessing_path, test_conf):
 
     data_process = DataPreprocess(conf.n_timestamps, conf.D, conf.step_size,
                                   conf.ntx_max, conf.ntx, conf.nrx_max,
-                                  conf.nrx, conf.nsubcarrier_max, conf.nsubcarrier,
-                                  conf.data_shape_to_nn,
-                                  data_folder, label)
-    data_process.file2_prefix = conf.data_folder + "data_preprocessing/"
+                                  conf.nrx, conf.nsubcarrier_max, test_conf['nsubcarrier'],
+                                  test_conf['data_shape_to_nn'],
+                                  data_path, conf.train_label)
+    data_process.file2_prefix = data_preprocessing_path
 
     for d in d_list:
         data_process.load_image_my(d, True)
-        data_process.signal_processing_my(conf.do_fft, conf.fft_shape)
+        data_process.signal_processing_my(conf.do_fft, test_conf['fft_shape'])
         data_process.prepare_shape_my()
         data_process.save2file_my(d)
 
