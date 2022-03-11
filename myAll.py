@@ -55,10 +55,6 @@ def test(model_, subcarrier_spacing_, shape_conversion_):
     writer.writerow(data)
     fcsv.close()
     
-model_list = ["model1", "model2"]
-subcarrier_spacing_list = [4, 7, 8, 14]
-shape_conversion_list = [50, 40, 30, 20, 10]
-
 now = time.localtime()
 folder_name = "%04d-%02d-%02d_%02d%02d%02d" % (now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min, now.tm_sec)
 
@@ -69,6 +65,24 @@ if not os.path.isdir(test_path):
     os.mkdir(test_path)
 
 data_path = 'data/data/'
+
+model_list = ["model1"]
+subcarrier_spacing_list = [4, 7, 8]
+shape_conversion_list = [50, 40, 30, 20]
+
+data_preprocessing_path = test_path+'data_preprocessing/'
+if not os.path.isdir(data_preprocessing_path):
+    os.mkdir(data_preprocessing_path)
+
+for model_ in model_list:
+    for subcarrier_spacing_ in subcarrier_spacing_list:
+        for shape_conversion_ in shape_conversion_list:
+            print(f"\n\n<<< Test Start >>> {model_} {subcarrier_spacing_} {shape_conversion_}")
+            test(model_, subcarrier_spacing_, shape_conversion_)
+
+model_list = ["model2"]
+subcarrier_spacing_list = [4, 7, 8, 14]
+shape_conversion_list = [50, 40, 30, 20, 10]
 
 data_preprocessing_path = test_path+'data_preprocessing/'
 if not os.path.isdir(data_preprocessing_path):
